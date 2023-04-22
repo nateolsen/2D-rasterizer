@@ -1,0 +1,13 @@
+png 40 40 hw1trig.png
+
+xyrgb  2.2  2.3   255 0 0
+xyc   10.4 39.5   #00ff00
+xyrgb 20.6 20.7   0 0 0
+
+trig 1 2 3
+
+xyrgb 11.4  39.5   255   0   0
+xyc   21.1  20.2   #0000ff
+xyrgb 39.8  20.2   0 0 0
+
+trig 4 5 6

@@ -1,0 +1,18 @@
+png 30 30 hw1linec.png
+
+xyrgb 15 15 0 0 0
+xyrgb 0 15 0 0 0
+xyrgb 15 0 0 0 0
+xyrgb 29 20.6 0 0 0
+xyrgb 20.3 29 0 0 0
+
+linec 1 2 #ff0000
+linec 1 3 #00ff00
+linec 1 4 #0000ff
+linec 1 5 #ffffff
+linec 2 3 #ffff00
+linec 2 4 #ff00ff
+linec 2 5 #00ffff
+linec 3 4 #777777
+linec 3 5 #2468ac
+linec 4 5 #ca8642
