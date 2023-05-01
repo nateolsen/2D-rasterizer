@@ -1,0 +1,23 @@
+png 120 120 hw1rgba.png
+
+xyrgb 24 10 255 0 0
+xyrgba 110 20 0 255 0 0
+xyrgba 70 110 0 0 255 127
+
+trig 1 2 3
+
+xyrgba 10 10 0 0 0 127
+xyrgba 110 110 0 0 0 127
+lineg -1 -2
+xyrgba 11 10 0 0 0 63
+xyrgba 111 110 0 0 0 127
+lineg -1 -2
+xyrgba 12 10 0 0 0 127
+xyrgba 112 110 0 0 0 63
+lineg -1 -2
+
+
+xyrgba 38 60 0 255 255 127
+xyrgba 92 5 255 255 0 127
+xyrgba 102 115 255 0 255 127
+trig -1 -2 -3

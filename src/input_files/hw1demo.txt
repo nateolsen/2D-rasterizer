@@ -1,0 +1,7 @@
+png 20 30 hw1demo.png
+xyc    2  3   #ff0000
+xyrgb 10 29   0 127 0
+xyrgb  19  9   0 0 255
+trig 1 -1 2
+xyc    0  29   #770099
+trig 1 -2 -1

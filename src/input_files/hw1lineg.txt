@@ -1,0 +1,18 @@
+png 30 30 hw1lineg.png
+
+xyrgb 15   15    255   0   0
+xyrgb  0   15      0 255   0
+xyrgb 15    0      0   0 255
+xyrgb 29   20.6  255   0 255
+xyrgb 20.3 29      0   0   0
+
+lineg 1 2
+lineg 1 3
+lineg 1 4
+lineg 1 5
+lineg 2 3
+lineg 2 4
+lineg 2 5
+lineg 3 4
+lineg 3 5
+lineg 4 5

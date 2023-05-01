@@ -126,12 +126,8 @@ fn basic_dda(pic: &mut Image, i1: &Pixel, i2: &Pixel, rgba: Option<(u8, u8, u8, 
     if line.v[i] < 0.0 {
         mem::swap(&mut p1, &mut p2);
         line.reverse();
-        // println!("swapped");
     }
 
-    // println!("p1: {:?}", p1.pos);
-    // println!("p2: {:?}", p2.pos);
-    // println!("line: {:?}", line);
     let dp_scale: f64; 
     if line.v[i] == 0.0 {
         dp_scale = line.v[j];
@@ -142,32 +138,65 @@ fn basic_dda(pic: &mut Image, i1: &Pixel, i2: &Pixel, rgba: Option<(u8, u8, u8, 
     let dp: Vector = line.clone().scale(1.0/dp_scale);
     let dp0: Vector = dp.clone().scale(p1.pos[i].ceil() - p1.pos[i]);
     let mut q: Vector = add_vector_to_pixel(p1, &dp0);
-    // println!("step: {}", i);
-    // println!("dp: {:?}", dp);
-    // println!("dp0: {:?}", dp0);
-    // println!("q: {:?}", q);
-    
-    let step_size = 1.0/(p2.pos[i] - p1.pos[i]);
-    while q.v[i] < p2.pos[i] {
 
+    let step_size = get_step_size(p1, p2, i);
+    let mut step: f64 = 0.0;
+
+    while q.v[i] < p2.pos[i] {
         // Linearly interpolate
         let pixel: Pixel;
         if rgba == None {
-            
-            let red = (p1.rgba.0[0] as f64 + ((p2.rgba.0[0] - p1.rgba.0[0]) as f64 *step_size)).round() as u8;
-            let green = (p1.rgba.0[1] as f64 + ((p2.rgba.0[1] - p1.rgba.0[1]) as f64 *step_size)).round() as u8;
-            let blue = (p1.rgba.0[2] as f64 + ((p2.rgba.0[2] - p1.rgba.0[2]) as f64 *step_size)).round() as u8;
-            pixel = Pixel::new(q.v[0].round(), q.v[1].round(), red, green, blue, 255);
+
+            let (i_red, i_green, i_blue, _i_alpha) = get_interp_color(p1, p2, step_size, step);
+            let (red, green, blue, alpha) = over_paint((i_red, i_green, i_blue, p1.rgba.0[3]), get_under_pixel(pic, q.v[0].round() as u32, q.v[1].round() as u32));
+            pixel = Pixel::new(q.v[0].round(), q.v[1].round(), red, green, blue, alpha);
+            step += 1.0;
         }
         else {
             let (red, green, blue, alpha) = rgba.unwrap();
             pixel = Pixel::new(q.v[0].round(), q.v[1].round(), red, green, blue, alpha);
         }
+
         fill_pixel(pic, pixel);
         q.add(&dp);
     }
+}
 
-    // println!("-------------");
+fn get_under_pixel(pic: &mut Image, x: u32, y: u32) -> (u8, u8, u8, u8) {
+    let rgba = pic.img_buff.get_pixel(x, y).0;
+    let (red, green, blue, alpha) = (rgba[0], rgba[1], rgba[2], rgba[3]);
+    (red, green, blue, alpha)
+}
+
+// Assumes A over B
+fn over_paint(a: (u8, u8, u8, u8), b: (u8, u8, u8, u8)) -> (u8, u8, u8, u8) {
+    let a_f32: (f32, f32, f32, f32) = (f32::from(a.0)/255.0, f32::from(a.1)/255.0, f32::from(a.2)/255.0, f32::from(a.3)/255.0);
+    let b_f32: (f32, f32, f32, f32) = (f32::from(b.0)/255.0, f32::from(b.1)/255.0, f32::from(b.2)/255.0, f32::from(b.3)/255.0);
+
+    let alpha_o: f32 = a_f32.3 + (b_f32.3 * (1.0 - a_f32.3));
+
+    let ratio = a_f32.3/alpha_o;
+    let out_color = (
+        ((ratio * a_f32.0 + (1.0-ratio) * b_f32.0) * 255.0) as u8, 
+        ((ratio * a_f32.1 + (1.0-ratio) * b_f32.1) * 255.0) as u8, 
+        ((ratio * a_f32.2 + (1.0-ratio) * b_f32.2) * 255.0) as u8, 
+        (alpha_o * 255.0) as u8
+    );
+    
+    out_color
+}
+
+fn get_step_size(p1: &Pixel, p2: &Pixel, direction: usize) -> f64 {
+    return f64::min(1.0/((p2.pos[direction] - p1.pos[direction]).abs().round()-1.0), 1.0);
+}
+
+fn get_interp_color(p1: &Pixel, p2: &Pixel, step_size: f64, step_num: f64) -> (u8, u8, u8, u8) {
+
+    let red = (p1.rgba.0[0] as f64 + ((p2.rgba.0[0] as f64 - p1.rgba.0[0] as f64) * (step_num * step_size))).round();
+    let green = (p1.rgba.0[1] as f64 + ((p2.rgba.0[1] as f64 - p1.rgba.0[1] as f64) * (step_num * step_size))).round();
+    let blue = (p1.rgba.0[2] as f64 + ((p2.rgba.0[2] as f64 - p1.rgba.0[2] as f64) * (step_num * step_size))).round();
+    let alpha = (p1.rgba.0[3] as f64 + ((p2.rgba.0[3] as f64 - p1.rgba.0[3] as f64) * (step_num * step_size))).round();
+    (red as u8, green as u8, blue as u8, alpha as u8)
 }
 
 fn sort_trig_verts_in_y(v1: &Pixel, v2: &Pixel, v3: &Pixel) -> [Pixel; 3]{
@@ -186,67 +215,69 @@ fn sort_trig_verts_in_y(v1: &Pixel, v2: &Pixel, v3: &Pixel) -> [Pixel; 3]{
     arr
 }
 
+fn get_q_dp(p1: &Pixel, p2: &Pixel) -> (Vector, Vector) {
+    
+    let p = Vector::init_from_pixels(p1, p2);
+    let dp_scale: f64; 
+    if p.v[1] == 0.0 {
+        dp_scale = p.v[0];
+    }
+    else {
+        dp_scale = p.v[1];
+    }
+    let dp = p.clone().scale(1.0/dp_scale);
+    let dp0: Vector = dp.clone().scale(p1.pos[1].ceil() - p1.pos[1]);
+    let q: Vector = add_vector_to_pixel(p1, &dp0);
+    (q, dp)
+}
+
 fn trig(pic: &mut Image, v1: &Pixel, v2: &Pixel, v3: &Pixel) {
     let sorted_vertices = sort_trig_verts_in_y(v1, v2, v3);
-    println!("{:?}, {:?}, {:?}", sorted_vertices[0], sorted_vertices[1], sorted_vertices[2]);
 
-    let p_a = Vector::init_from_pixels(&sorted_vertices[0], &sorted_vertices[1]);
-    let dq_a_scale: f64; 
-    if p_a.v[1] == 0.0 {
-        dq_a_scale = p_a.v[0];
-    }
-    else {
-        dq_a_scale = p_a.v[1];
-    }
-    let dq_a = p_a.clone().scale(1.0/dq_a_scale);
-    let dp0_a: Vector = dq_a.clone().scale(&sorted_vertices[0].pos[1].ceil() - &sorted_vertices[0].pos[1]);
-    let mut q_a: Vector = add_vector_to_pixel(&sorted_vertices[0], &dp0_a);
+    let (mut q_a, dq_a) = get_q_dp(&sorted_vertices[0], &sorted_vertices[1]);
+    let (mut q_c, dq_c) = get_q_dp(&sorted_vertices[0], &sorted_vertices[2]);
 
-    let p_c = Vector::init_from_pixels(&sorted_vertices[0], &sorted_vertices[2]);
-    let dq_c_scale: f64; 
-    if p_c.v[1] == 0.0 {
-        dq_c_scale = p_c.v[0];
-    }
-    else {
-        dq_c_scale = p_c.v[1];
-    }
-    let dq_c = p_c.clone().scale(1.0/dq_c_scale);
-    let dp0_c: Vector = dq_c.clone().scale(&sorted_vertices[0].pos[1].ceil() - &sorted_vertices[0].pos[1]);
-    let mut q_c: Vector = add_vector_to_pixel(&sorted_vertices[0], &dp0_c);
+    let a_step_size = get_step_size(&sorted_vertices[0], &sorted_vertices[1], 1);
+    let c_step_size = get_step_size(&sorted_vertices[0], &sorted_vertices[2], 1);
+    let e_step_size = get_step_size(&sorted_vertices[1], &sorted_vertices[2], 1);
+
+    let (mut a_step, mut c_step, mut e_step) = (0.0, 0.0, 0.0);
+
 
     while q_a.v[1] < sorted_vertices[1].pos[1] {
 
-        let p1 = Pixel::new(q_a.v[0], q_a.v[1], sorted_vertices[0].rgba.0[0], sorted_vertices[0].rgba.0[1], sorted_vertices[0].rgba.0[2], 255);
-        let p2 = Pixel::new(q_c.v[0], q_c.v[1], sorted_vertices[1].rgba.0[0], sorted_vertices[1].rgba.0[1], sorted_vertices[1].rgba.0[2], 255);
+        let (a_red, a_green, a_blue, a_alpha) = get_interp_color(&sorted_vertices[0], &sorted_vertices[1], a_step_size, a_step);
+        let (c_red, c_green, c_blue, c_alpha) = get_interp_color(&sorted_vertices[0], &sorted_vertices[2], c_step_size, c_step);
+
+        let p1 = Pixel::new(q_a.v[0], q_a.v[1], a_red, a_green, a_blue, a_alpha);
+        let p2 = Pixel::new(q_c.v[0], q_c.v[1], c_red, c_green, c_blue, c_alpha);
+
         basic_dda(pic, &p1, &p2, None);
         q_a.add(&dq_a);
         q_c.add(&dq_c);
-    }
-    println!("q_a: {:?}", q_a.v[1]);
-    println!("q_c: {:?}", q_c.v[1]);
 
-    let p_e = Vector::init_from_pixels(&sorted_vertices[1], &sorted_vertices[2]);
-    let dq_e_scale: f64; 
-    if p_e.v[1] == 0.0 {
-        dq_e_scale = p_e.v[0];
+        a_step += 1.0;
+        c_step += 1.0;
     }
-    else {
-        dq_e_scale = p_e.v[1];
-    }
-    let dq_e = p_e.clone().scale(1.0/dq_e_scale);
-    let dp0_e: Vector = dq_e.clone().scale(&sorted_vertices[1].pos[1].ceil() - &sorted_vertices[1].pos[1]);
-    let mut q_e: Vector = add_vector_to_pixel(&sorted_vertices[1], &dp0_e);
+
+    let (mut q_e, dq_e) = get_q_dp(&sorted_vertices[1], &sorted_vertices[2]);
 
     while q_e.v[1] < sorted_vertices[2].pos[1] {
-        println!("q_e: {:?}", q_e.v[1]);
-        println!("top: {:?}", sorted_vertices[2].pos[1]);
-        let p1 = Pixel::new(q_e.v[0], q_e.v[1], sorted_vertices[2].rgba.0[0], sorted_vertices[2].rgba.0[1], sorted_vertices[2].rgba.0[2], 255);
-        let p2 = Pixel::new(q_c.v[0], q_c.v[1], sorted_vertices[1].rgba.0[0], sorted_vertices[1].rgba.0[1], sorted_vertices[1].rgba.0[2], 255);
-        println!("p1: {:?}", p1.pos);
-        println!("p2: {:?}", p2.pos);
+
+        let (e_red, e_green, e_blue, e_alpha) = get_interp_color(&sorted_vertices[1], &sorted_vertices[2], e_step_size, e_step);
+        let (c_red, c_green, c_blue, c_alpha) = get_interp_color(&sorted_vertices[0], &sorted_vertices[2], c_step_size, c_step);
+
+        let p1 = Pixel::new(q_e.v[0], q_e.v[1], e_red, e_green, e_blue, e_alpha);
+        let p2 = Pixel::new(q_c.v[0], q_c.v[1], c_red, c_green, c_blue, c_alpha);
+        
         basic_dda(pic, &p1, &p2, None);
+
         q_e.add(&dq_e);
         q_c.add(&dq_c);
+
+        c_step += 1.0;
+        e_step += 1.0;
+        
     }
 }
 
@@ -296,7 +327,6 @@ fn process_input(filename: String) -> Vec<Image>{
                         let green: u8 = cmd_params[4].parse::<u8>().unwrap();
                         let blue: u8 = cmd_params[5].parse::<u8>().unwrap();
                         let pixel = Pixel::new(x, y, red, green, blue, 255);
-                        // fill_pixel(images.get_mut(current_frame).unwrap(), pixel);
                         vertices.push(pixel);
                     }
                     "xyc" => {
@@ -305,31 +335,84 @@ fn process_input(filename: String) -> Vec<Image>{
                         let hex_string: String = cmd_params[3].to_string();
                         let rbga = convert_hex_color_string(hex_string);
                         let pixel = Pixel::new(x, y, rbga.0, rbga.1, rbga.2, rbga.3);
-                        // fill_pixel(images.get_mut(current_frame).unwrap(), pixel);
                         vertices.push(pixel);
                     }
                     "frame" => {
                         current_frame = cmd_params[1].parse::<usize>().unwrap();
                     }
                     "linec" => {
-                        let i1: usize = cmd_params[1].parse::<usize>().unwrap();
-                        let i2: usize = cmd_params[2].parse::<usize>().unwrap();
+                        let i1: usize = if cmd_params[1].parse::<i32>().unwrap() >= 0 {
+                            cmd_params[1].parse::<usize>().unwrap()
+                        } 
+                        else {
+                            vertices.len() - cmd_params[1].parse::<i32>().unwrap().abs() as usize
+                        };
+
+                        let i2: usize = if cmd_params[2].parse::<i32>().unwrap() >= 0 {
+                            cmd_params[2].parse::<usize>().unwrap()
+                        } 
+                        else {
+                            vertices.len() - cmd_params[2].parse::<i32>().unwrap().abs() as usize
+                        };
                         let vertex1 = &vertices[i1];
                         let vertex2 = &vertices[i2];
                         let rbga = convert_hex_color_string(cmd_params[3].to_string());
                         basic_dda(images.get_mut(current_frame).unwrap(), vertex1, vertex2, Some(rbga));
                     }
                     "trig" => {
-                        let i1: usize = cmd_params[1].parse::<usize>().unwrap();
-                        let i2: usize = cmd_params[2].parse::<usize>().unwrap();
-                        let i3: usize = cmd_params[3].parse::<usize>().unwrap();
+                        let i1: usize = if cmd_params[1].parse::<i32>().unwrap() >= 0 {
+                            cmd_params[1].parse::<usize>().unwrap()
+                        } 
+                        else {
+                            vertices.len() - cmd_params[1].parse::<i32>().unwrap().abs() as usize
+                        };
+                        let i2: usize = if cmd_params[2].parse::<i32>().unwrap() >= 0 {
+                            cmd_params[2].parse::<usize>().unwrap()
+                        } 
+                        else {
+                            vertices.len() - cmd_params[2].parse::<i32>().unwrap().abs() as usize
+                        };
+                        let i3: usize = if cmd_params[3].parse::<i32>().unwrap() >= 0 {
+                            cmd_params[3].parse::<usize>().unwrap()
+                        } 
+                        else {
+                            vertices.len() - cmd_params[3].parse::<i32>().unwrap().abs() as usize
+                        };
                         let vertex1 = &vertices[i1];
                         let vertex2 = &vertices[i2];
                         let vertex3 = &vertices[i3];
-                        // let rbga = convert_hex_color_string(cmd_params[3].to_string());
                         trig(images.get_mut(current_frame).unwrap(), vertex1, vertex2, vertex3);
                     }
+                    "lineg" => {
+                        let i1: usize = if cmd_params[1].parse::<i32>().unwrap() >= 0 {
+                            cmd_params[1].parse::<usize>().unwrap()
+                        } 
+                        else {
+                            vertices.len() - cmd_params[1].parse::<i32>().unwrap().abs() as usize
+                        };
 
+                        let i2: usize = if cmd_params[2].parse::<i32>().unwrap() >= 0 {
+                            cmd_params[2].parse::<usize>().unwrap()
+                        } 
+                        else {
+                            vertices.len() - cmd_params[2].parse::<i32>().unwrap().abs() as usize
+                        };
+
+                        let vertex1 = &vertices[i1];
+                        let vertex2 = &vertices[i2];
+                        
+                        basic_dda(images.get_mut(current_frame).unwrap(), vertex1, vertex2, None);
+                    }
+                    "xyrgba" => {
+                        let x: f64 = cmd_params[1].parse::<f64>().unwrap();
+                        let y: f64 = cmd_params[2].parse::<f64>().unwrap();
+                        let red: u8 = cmd_params[3].parse::<u8>().unwrap();
+                        let green: u8 = cmd_params[4].parse::<u8>().unwrap();
+                        let blue: u8 = cmd_params[5].parse::<u8>().unwrap();
+                        let alpha: u8 = cmd_params[6].parse::<u8>().unwrap();
+                        let pixel = Pixel::new(x, y, red, green, blue, alpha);
+                        vertices.push(pixel);
+                    }
                     // Skip
                     _ => println!("{} has been skipped", keyword.to_string()),
                 }

@@ -1,0 +1,11 @@
+png 1200 1200 testrgba.png
+
+xyrgb 240 100 255 0 0
+xyrgba 1100 200 0 255 0 0
+xyrgba 700 1100 0 0 255 127
+trig 1 2 3
+
+xyrgba 380 600 0 255 255 127
+xyrgba 920 50 255 255 0 127
+xyrgba 1020 1150 255 0 255 127
+trig -1 -2 -3
